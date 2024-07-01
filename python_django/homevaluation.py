@@ -11,6 +11,8 @@ from django.db.models import F, Avg
 from .models import Home
 import math
 
+# Function to calculate average sqm price in municipality before valuating a single home
+
 def avg_sqm_price_in_municipality(municipality):
     homes_in_municipality = Home.objects.filter(
         municipality=municipality,
@@ -26,6 +28,8 @@ def avg_sqm_price_in_municipality(municipality):
 
     rounded_avg_price = round(avg_price_per_square_meter or 0)
     return rounded_avg_price
+
+# Function to valuate single home. Values need adjustment in future work
 
 def calculate_single_home(municipality, squaremeters, constructionyear, energylabel):
     avg_price_per_square_meter = avg_sqm_price_in_municipality(municipality)

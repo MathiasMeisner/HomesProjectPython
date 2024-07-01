@@ -1,8 +1,93 @@
 # python_django/views.py
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseBadRequest
 from django.db.models import Q
 from .models import Home
 from .homevaluation import avg_sqm_price_in_municipality, calculate_single_home
+from django.shortcuts import render, redirect
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth import login, logout, authenticate
+from django.views.decorators.csrf import ensure_csrf_cookie
+from .forms import UserRegisterForm
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user
+import json
+
+@login_required
+def user_info_view(request):
+    user = request.user
+    user_info = {
+        "username": user.username,
+        "email": user.email,
+        "is_authenticated": user.is_authenticated
+    }
+    print(f"User info: {user_info}")  # Log user info to the backend terminal
+    return JsonResponse(user_info)
+
+def get_user(request):
+    user = request.user
+    return JsonResponse({'username': user.username})
+
+def user_view(request):
+    user = get_user(request)
+    if user.is_authenticated:
+        return JsonResponse({'username': user.username})
+    else:
+        return JsonResponse({'username': None}, status=200)
+
+@ensure_csrf_cookie
+def set_csrf_token(request):
+    csrf_token = get_token(request)
+    return JsonResponse({'csrfToken': csrf_token})
+
+def home_view(request):
+    return render(request, 'home.html')
+
+@csrf_exempt
+def register_view(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            print(f"Received data: {data}")  # Print the received data for debugging
+            form = UserCreationForm(data)
+            if form.is_valid():
+                user = form.save()
+                login(request, user)
+                return JsonResponse({"message": "Registration successful"})
+            else:
+                print(f"Form errors: {form.errors.as_json()}")  # Print form errors for debugging
+                return HttpResponseBadRequest(form.errors.as_json())
+        except Exception as e:
+            print(f"Error processing request: {e}")
+            return HttpResponseBadRequest({"error": str(e)})
+    else:
+        return HttpResponseBadRequest({"error": "Invalid request method"})
+
+@csrf_exempt
+def login_view(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            username = data.get('username')
+            password = data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return JsonResponse({"message": "Login successful"})
+            else:
+                return HttpResponseBadRequest({"error": "Invalid credentials"})
+        except Exception as e:
+            return HttpResponseBadRequest({"error": str(e)})
+    else:
+        return HttpResponseBadRequest({"error": "Invalid request method"})
+
+@csrf_exempt
+def logout_view(request):
+    if request.method == 'POST':
+        logout(request)
+        return JsonResponse({"message": "Logout successful"})
+    return JsonResponse({"error": "Invalid request method"}, status=400)
 
 def get_sqm_price(request, municipality):
     print(f"Municipality: {municipality}")  # Debugging print statement
@@ -32,8 +117,8 @@ def get_homes(request):
     min_constyear = request.GET.get('min_constyear')
     max_constyear = request.GET.get('max_constyear')
     
-    min_energy_label = request.GET.get('min_energy_label')  # New parameter
-    max_energy_label = request.GET.get('max_energy_label')  # New parameter
+    min_energy_label = request.GET.get('min_energy_label')
+    max_energy_label = request.GET.get('max_energy_label')
     
     print("Initial number of homes:", Home.objects.count())  # Debugging statement
 
@@ -108,4 +193,3 @@ def get_homes(request):
     ]
     
     return JsonResponse(homes_data, safe=False)
-

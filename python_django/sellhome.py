@@ -5,6 +5,8 @@ from django.core.files.storage import default_storage
 from .models import Home, default_image_url
 import json
 
+# Function to set home for sale. Will need login requirements
+
 @csrf_exempt
 def create_home(request):
     if request.method == 'POST':
